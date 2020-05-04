@@ -22,22 +22,26 @@ class Net(nn.Module):
         super(Net, self).__init__()
 
         self.conv1 = nn.Conv2d(1, 32, 5, padding=2)
+        self.conv1_bn = nn.BatchNorm2d(32)
         self.conv2 = nn.Conv2d(32, 64, 3)
+        self.conv2_bn = nn.BatchNorm2d(64)
 
         self.fc1 = nn.Linear(6 * 6 * 64, 120)
+        self.fc1_bn = nn.BatchNorm1d(120)
         self.fc2 = nn.Linear(120, 80)
+        self.fc2_bn = nn.BatchNorm1d(80)
         self.fc3 = nn.Linear(80, 10)
 
     def forward(self, x):
         # input 32x32x1 (2 padded 28x28 images 1-channel) -> 28x28x32 (Conv1) -> 14x14x32 (Max pool (2,2))
-        x = F.max_pool2d(F.relu(self.conv1(x)), (2, 2))
+        x = F.max_pool2d(F.relu(self.conv1_bn(self.conv1(x))), (2, 2))
         # 14x14x32 -> 12x12x64 (Conv2) -> 6x6x64 (Max pool (2,2))
-        x = F.max_pool2d(F.relu(self.conv2(x)), (2, 2))
+        x = F.max_pool2d(F.relu(self.conv2_bn(self.conv2(x))), (2, 2))
         # Flatten features
         x = x.view(-1, 6 * 6 * 64)
         # Fully connected layer
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc1_bn(self.fc1(x)))
+        x = F.relu(self.fc2_bn(self.fc2(x)))
         x = self.fc3(x)
         return x
 
@@ -123,4 +127,4 @@ if __name__ == '__main__':
     train(trainloader, save=False)
     # list_of_file_paths = glob.glob('trained_nets/*.pth')
     # latest_net_path = max(list_of_file_paths, key=os.path.getctime)
-    test(testloader, load=False)
+    test(testloader, load=True, load_path='trained_nets/mnist_net_2020-05-04_02-24.pth')
