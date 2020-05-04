@@ -1,3 +1,9 @@
+from __future__ import print_function
+
+import glob
+import os
+import time
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,8 +13,7 @@ import torch.utils.data
 import torchvision
 import torchvision.transforms as transforms
 
-
-NET_PATH = './mnist_net.pth'
+NET_PATH = 'trained_nets/mnist_net_%s.pth' % time.strftime('%Y-%m-%d_%H-%M')
 
 
 class Net(nn.Module):
@@ -37,7 +42,8 @@ class Net(nn.Module):
         return x
 
 
-def train(loader, nepoch=10):
+def train(loader, nepoch=10, save=False):
+    net.train()
     for epoch in range(nepoch):
         running_loss = 0.0
         for i, data in enumerate(loader, 0):
@@ -50,15 +56,18 @@ def train(loader, nepoch=10):
             optimizer.step()
 
             running_loss += loss.item()
-            if i % 2000 == 1999:
-                print('[%d, %5d] loss: %.5f' %
-                      (epoch + 1, i + 1, running_loss / 2000))
+            if i % 60 == 59:
+                print('[%d, %3d] loss: %f' %
+                      (epoch + 1, i + 1, running_loss / 60 * 100))
                 running_loss = 0.0
-    torch.save(net.state_dict(), NET_PATH)
+    if save:
+        torch.save(net.state_dict(), NET_PATH)
 
 
-def test(loader):
-    net.load_state_dict(torch.load(NET_PATH))
+def test(loader, load=True, load_path=None):
+    net.eval()
+    if load:
+        net.load_state_dict(torch.load(load_path))
     correct = 0
     total = 0
     with torch.no_grad():
@@ -71,22 +80,47 @@ def test(loader):
     print('Accuracy on test set: %.3f' % (100 * correct / total))
 
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 net = Net()
 net.to(device)
 cross_entropy_loss = nn.CrossEntropyLoss()
 optimizer = optim.Adam(net.parameters())
 
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5,), (0.5,))])
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))
+])
 
 trainset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=4)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=4,
+                                          pin_memory=True if torch.cuda.is_available() else False)
 
 testset = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=4)
+testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=4,
+                                         pin_memory=True if torch.cuda.is_available() else False)
+
+
+def dataset_wide_mean_std(dataset):
+    return dataset.train_data.float().mean() / 255, dataset.train_data.float().std() / 255
+
 
 if __name__ == '__main__':
-    # train(trainloader)
-    test(testloader)
+    # Compute dataset-wide mean and std
+    # mean, std = dataset_wide_mean_std(trainset)
+    # print(mean, std)
+
+    # mean = 0.
+    # std = 0.
+    # for images, _ in trainloader:
+    #     batch_samples = images.size(0)  # batch size (the last batch can have smaller size!)
+    #     images = images.view(batch_samples, images.size(1), -1)
+    #     mean += images.mean(2).sum(0)
+    #     std += images.std(2).sum(0)
+    #
+    # mean /= len(trainloader.dataset)
+    # std /= len(trainloader.dataset)
+
+    train(trainloader, save=False)
+    # list_of_file_paths = glob.glob('trained_nets/*.pth')
+    # latest_net_path = max(list_of_file_paths, key=os.path.getctime)
+    test(testloader, load=False)
