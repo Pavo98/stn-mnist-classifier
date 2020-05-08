@@ -69,9 +69,9 @@ def train(loader, nepoch=10, save=False):
 
 
 def test(loader, load=True, load_path=None):
-    net.eval()
     if load:
         net.load_state_dict(torch.load(load_path))
+    net.eval()
     correct = 0
     total = 0
     with torch.no_grad():
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     # mean /= len(trainloader.dataset)
     # std /= len(trainloader.dataset)
 
-    train(trainloader, save=False)
+    # train(trainloader, save=False)
     # list_of_file_paths = glob.glob('trained_nets/*.pth')
     # latest_net_path = max(list_of_file_paths, key=os.path.getctime)
     test(testloader, load=True, load_path='trained_nets/mnist_net_2020-05-04_02-24.pth')
