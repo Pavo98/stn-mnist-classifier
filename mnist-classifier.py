@@ -82,15 +82,26 @@ def test(loader, load=True, load_path=None):
     correct = 0
     total = 0
     conf_matrix = torch.zeros((10, 10), dtype=torch.int64, requires_grad=False)
+    class_labels = []
+    class_probs = []
     with torch.no_grad():
         for data in loader:
             images, labels = data[0].to(device), data[1].to(device)
             outputs = net(images)
+            class_probs_batch = [F.softmax(el, dim=0) for el in outputs]
             _, predicted = torch.max(outputs.data, 1)
+            class_probs.append(class_probs_batch)
+            class_labels.append(data[1])
             indices = 10 * data[1] + predicted.cpu()
             conf_matrix += torch.bincount(indices, minlength=10**2).reshape(10, 10)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+    test_probs = torch.cat([torch.stack(batch) for batch in class_probs])
+    test_labels = torch.cat(class_labels)
+    for i, class_name in enumerate(testset.classes):
+        writer.add_pr_curve(class_name,
+                            test_labels == i,
+                            test_probs[:, i])
     writer.add_figure('confusion matrix',
                       conf_matrix_to_figure(conf_matrix))
     writer.close()
