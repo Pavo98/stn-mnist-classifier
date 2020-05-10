@@ -9,9 +9,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data
+from torch.utils.tensorboard import SummaryWriter
 
 import torchvision
 import torchvision.transforms as transforms
+
+from helpers import conf_matrix_to_figure
 
 NET_PATH = 'trained_nets/mnist_net_%s.pth' % time.strftime('%Y-%m-%d_%H-%M')
 
@@ -63,7 +66,11 @@ def train(loader, nepoch=10, save=False):
             if i % 60 == 59:
                 print('[%d, %3d] loss: %f' %
                       (epoch + 1, i + 1, running_loss / 60 * 100))
+                writer.add_scalar('training loss',
+                                  running_loss / 60,
+                                  global_step=epoch * len(loader) + i)
                 running_loss = 0.0
+    writer.close()
     if save:
         torch.save(net.state_dict(), NET_PATH)
 
@@ -74,13 +81,19 @@ def test(loader, load=True, load_path=None):
     net.eval()
     correct = 0
     total = 0
+    conf_matrix = torch.zeros((10, 10), dtype=torch.int64, requires_grad=False)
     with torch.no_grad():
         for data in loader:
             images, labels = data[0].to(device), data[1].to(device)
             outputs = net(images)
             _, predicted = torch.max(outputs.data, 1)
+            indices = 10 * data[1] + predicted.cpu()
+            conf_matrix += torch.bincount(indices, minlength=10**2).reshape(10, 10)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+    writer.add_figure('confusion matrix',
+                      conf_matrix_to_figure(conf_matrix))
+    writer.close()
     print('Accuracy on test set: %.3f' % (100 * correct / total))
 
 
@@ -123,6 +136,12 @@ if __name__ == '__main__':
     #
     # mean /= len(trainloader.dataset)
     # std /= len(trainloader.dataset)
+
+    writer = SummaryWriter("runs/vanilla_mnist")
+    # dataiter = iter(trainloader)
+    # images, _ = dataiter.next()
+    # writer.add_graph(net, images.to(device))
+    # writer.close()
 
     # train(trainloader, save=False)
     # list_of_file_paths = glob.glob('trained_nets/*.pth')
