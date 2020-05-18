@@ -5,7 +5,7 @@
 import torch
 
 
-def tps(theta, ctrl, grid, eps=1e-6):
+def tps(theta, ctrl, grid):
     r"""Evaluate the thin-plate-spline (TPS) at x,y locations defined in grid
 
         TPS(x, y) := theta[-3] + theta[-2]*x + theta[-1]*y + \sum_i=0,T theta[i] U(x, y, ctrl[i])  # from [1] (2.12)
@@ -21,9 +21,6 @@ def tps(theta, ctrl, grid, eps=1e-6):
         T control points in normalized coordinates range [0, 1]
     :param grid: NxHxWx3 tensor
         Grid locations to evaluate with homogeneous 1 in first coordinate
-    :param eps: scalar, Optional (default: 1e-6)
-        Zero value threshold for log function
-
     Returns
     -------
     :return z: NxHxWx2 tensor
@@ -38,7 +35,10 @@ def tps(theta, ctrl, grid, eps=1e-6):
 
     diff = grid[..., 1:].unsqueeze(-2) - ctrl.unsqueeze(1).unsqueeze(1)
     D = torch.sqrt((diff ** 2).sum(-1))
-    U = (D ** 2) * torch.log(D + eps)  # shape: NxHxWxT
+    U = (D ** 2) * torch.log(D)  # shape: NxHxWxT
+    # in case 0 * log(0), replace nan with 0
+    mask = U != U
+    U.masked_fill_(mask, 0)
 
     w, a = theta[:, :-3, :], theta[:, -3:, :]
 
