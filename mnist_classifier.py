@@ -16,13 +16,14 @@ import torchvision.transforms as transforms
 
 from helpers import conf_matrix_to_figure
 
-NET_PATH = 'trained_nets/mnist_net_%s.pth' % time.strftime('%Y-%m-%d_%H-%M')
+if __name__ == '__main__':
+    NET_PATH = 'trained_nets/mnist_net_%s.pth' % time.strftime('%Y-%m-%d_%H-%M')
 
 
-class Net(nn.Module):
+class CNN(nn.Module):
 
     def __init__(self):
-        super(Net, self).__init__()
+        super(CNN, self).__init__()
 
         self.conv1 = nn.Conv2d(1, 32, 5, padding=2)
         self.conv1_bn = nn.BatchNorm2d(32)
@@ -49,7 +50,7 @@ class Net(nn.Module):
         return x
 
 
-def train(loader, nepoch=10, save=False):
+def train(net, loader, nepoch=10, save=False):
     net.train()
     for epoch in range(nepoch):
         running_loss = 0.0
@@ -75,7 +76,7 @@ def train(loader, nepoch=10, save=False):
         torch.save(net.state_dict(), NET_PATH)
 
 
-def test(loader, load=True, load_path=None):
+def test(net, loader, load=True, load_path=None):
     if load:
         net.load_state_dict(torch.load(load_path))
     net.eval()
@@ -93,7 +94,7 @@ def test(loader, load=True, load_path=None):
             class_probs.append(class_probs_batch)
             class_labels.append(data[1])
             indices = 10 * data[1] + predicted.cpu()
-            conf_matrix += torch.bincount(indices, minlength=10**2).reshape(10, 10)
+            conf_matrix += torch.bincount(indices, minlength=10 ** 2).reshape(10, 10)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
     test_probs = torch.cat([torch.stack(batch) for batch in class_probs])
@@ -108,31 +109,30 @@ def test(loader, load=True, load_path=None):
     print('Accuracy on test set: %.3f' % (100 * correct / total))
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-net = Net()
-net.to(device)
-cross_entropy_loss = nn.CrossEntropyLoss()
-optimizer = optim.Adam(net.parameters())
-
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.1307,), (0.3081,))
-])
-
-trainset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=4,
-                                          pin_memory=True if torch.cuda.is_available() else False)
-
-testset = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=4,
-                                         pin_memory=True if torch.cuda.is_available() else False)
-
-
 def dataset_wide_mean_std(dataset):
     return dataset.train_data.float().mean() / 255, dataset.train_data.float().std() / 255
 
 
 if __name__ == '__main__':
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    net = CNN()
+    net.to(device)
+    cross_entropy_loss = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(net.parameters())
+
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ])
+
+    trainset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=4,
+                                              pin_memory=True if torch.cuda.is_available() else False)
+
+    testset = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=4,
+                                             pin_memory=True if torch.cuda.is_available() else False)
+
     # Compute dataset-wide mean and std
     # mean, std = dataset_wide_mean_std(trainset)
     # print(mean, std)
@@ -154,7 +154,7 @@ if __name__ == '__main__':
     # writer.add_graph(net, images.to(device))
     # writer.close()
 
-    # train(trainloader, save=False)
-    # list_of_file_paths = glob.glob('trained_nets/*.pth')
+    # train(net, trainloader, save=False)
+    # list_of_file_paths = glob.glob('trained_nets/mnist_*.pth')
     # latest_net_path = max(list_of_file_paths, key=os.path.getctime)
-    test(testloader, load=True, load_path='trained_nets/mnist_net_2020-05-04_02-24.pth')
+    test(net, testloader, load_path='trained_nets/mnist_net_2020-05-04_02-24.pth')
