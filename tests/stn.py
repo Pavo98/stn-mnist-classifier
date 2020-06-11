@@ -72,7 +72,7 @@ def test_stn(simple=False):
 
     dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     stn_net = {
-        False: STN,
+        False: STNtps,
         True: STNSimple,
     }[simple]
     net = stn_net(imgshape, (6, 6)).to(dev)

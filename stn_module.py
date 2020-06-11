@@ -69,7 +69,7 @@ class STNSimple(nn.Module):
         return F.grid_sample(x, grid)
 
 
-class STN(nn.Module):
+class STNtps(nn.Module):
 
     def __init__(self, outshape, ctrlshape=(10, 10)):
         super().__init__()
@@ -87,3 +87,19 @@ class STN(nn.Module):
         theta = self.loc(x).view(-1, self.nparam, 2)
         grid = tps.tps_grid(theta, self.target_ctrl, (x.shape[0], ) + self.outshape)
         return F.grid_sample(x, grid)
+
+
+class STNaffine(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+        self.loc = CNNLocNet(2 * 3)
+        self.loc.fc2.weight.data.zero_()
+        self.loc.fc2.bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
+
+    def forward(self, x):
+        theta = self.loc(x)
+        theta = theta.view(-1, 2, 3)
+        grid = F.affine_grid(theta, x.size())
+        return F.grid_sample(grid)
