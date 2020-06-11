@@ -28,7 +28,7 @@ class STNClassifierNet(nn.Module):
     def __init__(self):
         super(STNClassifierNet, self).__init__()
 
-        self.stn = stn_module.STN(outshape=(1, 28, 28))
+        self.stn = stn_module.STNtps(outshape=(1, 28, 28))
         self.cls = mnist_cls.CNN()
 
     def forward(self, x):
@@ -37,7 +37,7 @@ class STNClassifierNet(nn.Module):
         return x
 
 
-def train(net, loader, nepoch=10, save=False):
+def train(net, loader, nepoch=10, save=False, global_epoch=0):
     net.train()
     for epoch in range(nepoch):
         running_loss = 0.0
@@ -56,7 +56,7 @@ def train(net, loader, nepoch=10, save=False):
                       (epoch + 1, i + 1, running_loss / 60 * 100))
                 writer.add_scalar('training loss',
                                   running_loss / 60,
-                                  global_step=epoch * len(loader) + i)
+                                  global_step=(global_epoch + epoch) * len(loader) + i)
                 running_loss = 0.0
     writer.close()
     if save:
@@ -126,12 +126,12 @@ if __name__ == '__main__':
     dataiter = iter(trainloader)
     images, _ = dataiter.next()
     images = images.view(-1, 28, 28).mul_(0.3801).add_(0.1307).view(-1, 1, 28, 28)  # Unnormalize
-    img_grid = torchvision.utils.make_grid(images[:6, ...], nrow=3)
-    writer.add_graph(net, images.to(device))
+    img_grid = torchvision.utils.make_grid(images[:9, ...], nrow=3)
+    # writer.add_graph(net, images.to(device))
     writer.add_image('random_rotate_{}-degrees'.format(rotate_degrees), img_grid)
     writer.close()
 
-    train(net, trainloader, nepoch=100, save=True)
+    # train(net, trainloader, nepoch=100, save=True)
     list_of_file_paths = glob.glob('trained_nets/stn_*.pth')
     latest_net_path = max(list_of_file_paths, key=os.path.getctime)
-    test(net, testloader, load=True, load_path=latest_net_path)
+    test(net, testloader, load=True, load_path='trained_nets/stn_mnist_net_2020-06-04_12-14.pth')

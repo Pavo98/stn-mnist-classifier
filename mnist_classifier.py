@@ -17,7 +17,8 @@ import torchvision.transforms as transforms
 from helpers import conf_matrix_to_figure
 
 if __name__ == '__main__':
-    NET_PATH = 'trained_nets/mnist_net_%s.pth' % time.strftime('%Y-%m-%d_%H-%M')
+    start_time = time.strftime('%Y-%m-%d_%H-%M')
+    NET_PATH = 'trained_nets/mnist_net_%s.pth' % start_time
 
 
 class CNN(nn.Module):
@@ -25,9 +26,9 @@ class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
 
-        self.conv1 = nn.Conv2d(1, 32, 5, padding=2)
+        self.conv1 = nn.Conv2d(1, 32, 5, padding=2, bias=False)
         self.conv1_bn = nn.BatchNorm2d(32)
-        self.conv2 = nn.Conv2d(32, 64, 3)
+        self.conv2 = nn.Conv2d(32, 64, 3, bias=False)
         self.conv2_bn = nn.BatchNorm2d(64)
 
         self.fc1 = nn.Linear(6 * 6 * 64, 120)
@@ -50,7 +51,7 @@ class CNN(nn.Module):
         return x
 
 
-def train(net, loader, nepoch=10, save=False):
+def train(net, loader, nepoch=10, save=False, global_epoch=0):
     net.train()
     for epoch in range(nepoch):
         running_loss = 0.0
@@ -69,7 +70,7 @@ def train(net, loader, nepoch=10, save=False):
                       (epoch + 1, i + 1, running_loss / 60 * 100))
                 writer.add_scalar('training loss',
                                   running_loss / 60,
-                                  global_step=epoch * len(loader) + i)
+                                  global_step=(global_epoch + epoch) * len(loader) + i)
                 running_loss = 0.0
     writer.close()
     if save:
@@ -78,7 +79,7 @@ def train(net, loader, nepoch=10, save=False):
 
 def test(net, loader, load=True, load_path=None):
     if load:
-        net.load_state_dict(torch.load(load_path))
+        net.load_state_dict(torch.load(load_path), strict=False)
     net.eval()
     correct = 0
     total = 0
@@ -105,6 +106,7 @@ def test(net, loader, load=True, load_path=None):
                             test_probs[:, i])
     writer.add_figure('confusion matrix',
                       conf_matrix_to_figure(conf_matrix))
+    writer.add_scalar('test_accuracy', 100 * correct / total)
     writer.close()
     print('Accuracy on test set: %.3f' % (100 * correct / total))
 
@@ -148,13 +150,15 @@ if __name__ == '__main__':
     # mean /= len(trainloader.dataset)
     # std /= len(trainloader.dataset)
 
-    writer = SummaryWriter("runs/vanilla_mnist")
-    # dataiter = iter(trainloader)
-    # images, _ = dataiter.next()
-    # writer.add_graph(net, images.to(device))
-    # writer.close()
+    writer = SummaryWriter("runs/vanilla_mnist_%s" % start_time)
+    dataiter = iter(trainloader)
+    images, _ = dataiter.next()
+    writer.add_graph(net, images.to(device))
+    img_grid = torchvision.utils.make_grid(trainset.data[:9, None, ...], nrow=3)
+    writer.add_image('MNIST_train', img_grid)
+    writer.close()
 
     # train(net, trainloader, save=False)
     # list_of_file_paths = glob.glob('trained_nets/mnist_*.pth')
     # latest_net_path = max(list_of_file_paths, key=os.path.getctime)
-    test(net, testloader, load_path='trained_nets/mnist_net_2020-05-04_02-24.pth')
+    test(net, testloader, load_path='trained_nets/mnist_net_2020-05-04_02-27.pth')
