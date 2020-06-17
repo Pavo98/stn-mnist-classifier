@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import argparse
 import glob
 import os
 import time
@@ -20,15 +21,19 @@ import stn_module
 from helpers import conf_matrix_to_figure
 
 if __name__ == '__main__':
-    NET_PATH = 'trained_nets/stn_mnist_net_%s.pth' % time.strftime('%Y-%m-%d_%H-%M')
+    start_time = time.strftime('%Y-%m-%d_%H-%M')
+    NET_PATH = 'trained_nets/stn_mnist_net_%s.pth' % start_time
 
 
 class STNClassifierNet(nn.Module):
 
-    def __init__(self):
+    def __init__(self, args):
         super(STNClassifierNet, self).__init__()
 
-        self.stn = stn_module.STNtps(outshape=(1, 28, 28))
+        if args.model == 'stn_tps':
+            self.stn = stn_module.STNtps(outshape=(1, 28, 28), ctrlshape=args.ctrl_shape)
+        else:
+            self.stn = stn_module.STNaffine()
         self.cls = mnist_cls.CNN()
 
     def forward(self, x):
@@ -53,7 +58,7 @@ def train(net, loader, nepoch=10, save=False, global_epoch=0):
             running_loss += loss.item()
             if i % 60 == 59:
                 print('[%d, %3d] loss: %f' %
-                      (epoch + 1, i + 1, running_loss / 60 * 100))
+                      (global_epoch + epoch, i + 1, running_loss / 60 * 100))
                 writer.add_scalar('training loss',
                                   running_loss / 60,
                                   global_step=(global_epoch + epoch) * len(loader) + i)
@@ -63,7 +68,7 @@ def train(net, loader, nepoch=10, save=False, global_epoch=0):
         torch.save(net.state_dict(), NET_PATH)
 
 
-def test(net, loader, load=True, load_path=None):
+def test(net, loader, load=True, load_path=None, global_epoch=0):
     if load:
         net.load_state_dict(torch.load(load_path))
     net.eval()
@@ -89,16 +94,25 @@ def test(net, loader, load=True, load_path=None):
     for i, class_name in enumerate(testset.classes):
         writer.add_pr_curve(class_name,
                             test_labels == i,
-                            test_probs[:, i])
+                            test_probs[:, i],
+                            global_step=global_epoch)
     writer.add_figure('confusion matrix',
-                      conf_matrix_to_figure(conf_matrix))
+                      conf_matrix_to_figure(conf_matrix),
+                      global_step=global_epoch)
+    writer.add_scalar('test accuracy', correct / total, global_step=global_epoch)
+    writer.add_scalar('test loss', 1 - correct / total, global_step=global_epoch)
     writer.close()
     print('Accuracy on test set: %.3f' % (100 * correct / total))
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model', default='stn_tps')
+    parser.add_argument('--grid-size', type=int, default=10)
+    conf = parser.parse_args()
+    conf.ctrl_shape = (conf.grid_size, conf.grid_size)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    net = STNClassifierNet()
+    net = STNClassifierNet(conf)
     net.to(device)
     cross_entropy_loss = nn.CrossEntropyLoss()
     optimizer = optim.Adam(net.parameters())
@@ -122,7 +136,7 @@ if __name__ == '__main__':
 
     # mean, std = mnist_cls.dataset_wide_mean_std(trainset)
 
-    writer = SummaryWriter('runs/stn_net')
+    writer = SummaryWriter('runs/stn_net_%s' % start_time)
     dataiter = iter(trainloader)
     images, _ = dataiter.next()
     images = images.view(-1, 28, 28).mul_(0.3801).add_(0.1307).view(-1, 1, 28, 28)  # Unnormalize
@@ -134,4 +148,4 @@ if __name__ == '__main__':
     # train(net, trainloader, nepoch=100, save=True)
     list_of_file_paths = glob.glob('trained_nets/stn_*.pth')
     latest_net_path = max(list_of_file_paths, key=os.path.getctime)
-    test(net, testloader, load=True, load_path='trained_nets/stn_mnist_net_2020-06-04_12-14.pth')
+    test(net, testloader, load=True, load_path=latest_net_path)  # 'trained_nets/stn_mnist_net_2020-06-04_12-14.pth')

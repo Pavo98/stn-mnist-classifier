@@ -102,4 +102,4 @@ class STNaffine(nn.Module):
         theta = self.loc(x)
         theta = theta.view(-1, 2, 3)
         grid = F.affine_grid(theta, x.size())
-        return F.grid_sample(grid)
+        return F.grid_sample(x, grid)

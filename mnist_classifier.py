@@ -67,7 +67,7 @@ def train(net, loader, nepoch=10, save=False, global_epoch=0):
             running_loss += loss.item()
             if i % 60 == 59:
                 print('[%d, %3d] loss: %f' %
-                      (epoch + 1, i + 1, running_loss / 60 * 100))
+                      (global_epoch + epoch, i + 1, running_loss / 60 * 100))
                 writer.add_scalar('training loss',
                                   running_loss / 60,
                                   global_step=(global_epoch + epoch) * len(loader) + i)
@@ -77,9 +77,9 @@ def train(net, loader, nepoch=10, save=False, global_epoch=0):
         torch.save(net.state_dict(), NET_PATH)
 
 
-def test(net, loader, load=True, load_path=None):
+def test(net, loader, load=True, load_path=None, global_epoch=0):
     if load:
-        net.load_state_dict(torch.load(load_path), strict=False)
+        net.load_state_dict(torch.load(load_path))
     net.eval()
     correct = 0
     total = 0
@@ -103,10 +103,13 @@ def test(net, loader, load=True, load_path=None):
     for i, class_name in enumerate(testset.classes):
         writer.add_pr_curve(class_name,
                             test_labels == i,
-                            test_probs[:, i])
+                            test_probs[:, i],
+                            global_step=global_epoch)
     writer.add_figure('confusion matrix',
-                      conf_matrix_to_figure(conf_matrix))
-    writer.add_scalar('test_accuracy', 100 * correct / total)
+                      conf_matrix_to_figure(conf_matrix),
+                      global_step=global_epoch)
+    writer.add_scalar('test accuracy', correct / total, global_step=global_epoch)
+    writer.add_scalar('test loss', 1 - correct / total, global_step=global_epoch)
     writer.close()
     print('Accuracy on test set: %.3f' % (100 * correct / total))
 
