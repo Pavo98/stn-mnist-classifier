@@ -120,17 +120,21 @@ if __name__ == '__main__':
     rotate_degrees = 60
     # random.seed(0)
 
-    transform = transforms.Compose([
+    train_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,)),
+    ])
+    test_transform = transforms.Compose([
         transforms.RandomRotation(degrees=rotate_degrees, fill=(0,)),
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,)),
     ])
 
-    trainset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+    trainset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=train_transform)
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=4,
                                               pin_memory=True if torch.cuda.is_available() else False)
 
-    testset = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+    testset = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=test_transform)
     testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=4,
                                              pin_memory=True if torch.cuda.is_available() else False)
 
@@ -139,7 +143,7 @@ if __name__ == '__main__':
     writer = SummaryWriter('runs/stn_net_%s' % start_time)
     dataiter = iter(trainloader)
     images, _ = dataiter.next()
-    images = images.view(-1, 28, 28).mul_(0.3801).add_(0.1307).view(-1, 1, 28, 28)  # Unnormalize
+    images = images.mul_(0.3801).add_(0.1307)  # Unnormalize
     img_grid = torchvision.utils.make_grid(images[:9, ...], nrow=3)
     # writer.add_graph(net, images.to(device))
     writer.add_image('random_rotate_{}-degrees'.format(rotate_degrees), img_grid)

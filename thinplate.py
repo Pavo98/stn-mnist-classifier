@@ -14,9 +14,9 @@ def tps(theta, ctrl, grid):
 
     Params
     ------
-    :param theta: Nx(T+3)x2 tensor
+    :param theta: Nx(T+3 or T+2)x2 tensor
         N - Batch size
-        T+3 model parameters for T control points in dx, dy
+        T+3 or T+2(reduced) model parameters for T control points in dx, dy
     :param ctrl: NxTx2 tensor or Tx2 tensor
         T control points in normalized coordinates range [0, 1]
     :param grid: NxHxWx3 tensor
@@ -59,9 +59,9 @@ def tps_grid(theta, ctrl, size):
 
     Params
     ------
-    :param theta: Nx(T+3)x2 tensor
+    :param theta: Nx(T+3 or T+2)x2 tensor
         N - Batch size
-        T+3 - parameters for T control points in dx, dy
+        T+3 or T+2(reduced) - parameters for T control points in dx, dy
     :param ctrl: NxTx2 tensor, or Tx2 tensor
         T control points in normalized coordinates range [0, 1]
     :param size: tuple
