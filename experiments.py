@@ -14,6 +14,7 @@ import mnist_classifier as mnist_cls
 import stn_mnist as stn_mnist
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--train', action='store_true', default=False)
 parser.add_argument('--batch-size', type=int, default=64)
 parser.add_argument('--test-batch-size', type=int, default=200)
 parser.add_argument('--nepoch', type=int, default=10)
@@ -58,39 +59,40 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_siz
                                          pin_memory=True if torch.cuda.is_available() else False)
 model_cls.testset = testset
 
-# start_time = time.strftime('%Y-%m-%d_%H-%M')
-# run_path = '%s_net_%s' % (args.model, start_time) \
-#            + '_grid%d' % args.grid_size if args.model == 'stn_tps' else '' \
-#            + '_angle%d_trans%.2f' % (args.angle, args.trans)
+if args.train:
+    start_time = time.strftime('%Y-%m-%d_%H-%M')
+    run_path = '%s_net_%s' % (args.model, start_time) \
+               + '_grid%d' % args.grid_size if args.model == 'stn_tps' else '' \
+               + '_angle%d_trans%.2f' % (args.angle, args.trans)
 
-# writer = SummaryWriter('runs/' + run_path)
-# model_cls.writer = writer
-# dataiter = iter(trainloader)
-# images, _ = dataiter.next()
-# images = images.view(-1, 28, 28).mul_(0.3801).add_(0.1307).view(-1, 1, 28, 28)  # Unnormalize
-# img_grid = torchvision.utils.make_grid(images[:9, ...], nrow=3)
-# writer.add_graph(model, images.to(device))
-# writer.add_image('examples', img_grid)
-# writer.close()
-
-# for epoch in range(1, args.nepoch + 1):
-#     model_cls.train(model, trainloader, 1, global_epoch=epoch)
-#     if epoch % args.test_interval == 0:
-#         model_cls.test(model, testloader, load=False, global_epoch=epoch)
-#     if epoch % args.save_interval == 0:
-#         save_path = 'trained_nets/' + run_path + '_epoch%03d.pth' % epoch
-#         torch.save(model.state_dict(), save_path)
-
-model_paths = glob.glob('trained_nets/%s*.pth' % args.model)
-pattern = re.compile(r'trained_nets/(.*?)_epoch(\d{3}).pth')
-for path in sorted(model_paths):
-    match = pattern.search(path)
-    if not match:
-        continue
-    if args.model == 'stn_tps' and not match.group(1).endswith(str(args.grid_size)):
-        continue
-    run_path = match.group(1) + '_angle%d_trans%.2f' % (args.angle, args.trans)
     writer = SummaryWriter('runs/' + run_path)
     model_cls.writer = writer
-    epoch = int(match.group(2))
-    model_cls.test(model, testloader, load=True, load_path=path, global_epoch=epoch)
+    dataiter = iter(trainloader)
+    images, _ = dataiter.next()
+    images = images.view(-1, 28, 28).mul_(0.3801).add_(0.1307).view(-1, 1, 28, 28)  # Unnormalize
+    img_grid = torchvision.utils.make_grid(images[:9, ...], nrow=3)
+    writer.add_graph(model, images.to(device))
+    writer.add_image('examples', img_grid)
+    writer.close()
+
+    for epoch in range(1, args.nepoch + 1):
+        model_cls.train(model, trainloader, 1, global_epoch=epoch)
+        if epoch % args.test_interval == 0:
+            model_cls.test(model, testloader, load=False, global_epoch=epoch)
+        if epoch % args.save_interval == 0:
+            save_path = 'trained_nets/' + run_path + '_epoch%03d.pth' % epoch
+        torch.save(model.state_dict(), save_path)
+else:
+    model_paths = glob.glob('trained_nets/%s*.pth' % args.model)
+    pattern = re.compile(r'trained_nets/(.*?)_epoch(\d{3}).pth')
+    for path in sorted(model_paths):
+        match = pattern.search(path)
+        if not match:
+            continue
+        if args.model == 'stn_tps' and not match.group(1).endswith(str(args.grid_size)):
+            continue
+        run_path = match.group(1) + '_angle%d_trans%.2f' % (args.angle, args.trans)
+        writer = SummaryWriter('runs/' + run_path)
+        model_cls.writer = writer
+        epoch = int(match.group(2))
+        model_cls.test(model, testloader, load=True, load_path=path, global_epoch=epoch)
